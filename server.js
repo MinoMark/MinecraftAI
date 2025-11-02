@@ -1,61 +1,94 @@
+// server.js
 const mineflayer = require('mineflayer');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { GoalNear } = goals;
 const OpenAI = require("openai");
 require('dotenv').config();
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Owner username
+const LISTEN_USER = process.env.LISTEN_USER || 'MinoMark'; 
+const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
 
-// === SETUP YOUR SERVER ===
+const openai = new OpenAI({ apiKey: OPENAI_KEY });
+
+// Create bot
 const bot = mineflayer.createBot({
-  host: "donutsmp.net", // e.g. play.myserver.net
-  port: 25565, // default Java Edition port
-  username: "Marks" // Bot name
+  host: "donutsmp.net", // Your Java Edition server IP
+  username: "Mark"       // Bot name
+  // port not needed for Java Edition (default 25565)
 });
 
 bot.loadPlugin(pathfinder);
 
-// === On join ===
-bot.once("spawn", () => {
-  console.log("✅ Bot connected!");
-  bot.chat("Hello! I'm your AI bot 🤖");
+// Bot connected
+bot.once('spawn', () => {
+  console.log('✅ Bot connected!');
+  bot.chat(`Hello! I only listen to ${LISTEN_USER}.`);
 });
 
-// === On player chat ===
-bot.on("chat", async (username, message) => {
-  if (username === bot.username) return;
+// Helper function: only listen to owner
+function isFromOwner(username) {
+  if (!username) return false;
+  return username.toLowerCase() === LISTEN_USER.toLowerCase();
+}
 
-  console.log(`${username}: ${message}`);
+// Handle chat
+bot.on('chat', async (username, message) => {
+  if (!isFromOwner(username)) {
+    console.log(`Ignored message from ${username}: ${message}`);
+    return;
+  }
 
-  // Simple movement command
-  if (message.startsWith("come")) {
+  console.log(`Owner (${username}): ${message}`);
+
+  // Command: "come"
+  if (message.trim().toLowerCase() === 'come') {
     const player = bot.players[username]?.entity;
-    if (!player) return bot.chat("I can’t see you!");
+    if (!player) {
+      bot.chat("I can't see you, owner.");
+      return;
+    }
     const mcData = require('minecraft-data')(bot.version);
     const movements = new Movements(bot, mcData);
     bot.pathfinder.setMovements(movements);
     bot.pathfinder.setGoal(new GoalNear(player.position.x, player.position.y, player.position.z, 1));
-    return bot.chat("I'm coming to you!");
+    bot.chat("On my way, owner!");
+    return;
   }
 
-  // Ask AI a question
-  if (message.startsWith("ai")) {
-    const prompt = message.replace("ai", "").trim();
-    bot.chat("Thinking...");
-    const reply = await getAIResponse(prompt);
-    bot.chat(reply);
+  // Command: "jump"
+  if (message.trim().toLowerCase() === 'jump') {
+    bot.setControlState('jump', true);
+    setTimeout(() => bot.setControlState('jump', false), 400);
+    bot.chat("Boing!");
+    return;
   }
+
+  // Command: "ai <message>"
+  if (message.trim().toLowerCase().startsWith('ai ')) {
+    const prompt = message.trim().slice(3).trim();
+    bot.chat('Thinking...');
+    try {
+      const reply = await getAIResponse(prompt);
+      if (reply && reply.trim().length > 0) bot.chat(reply);
+      else bot.chat("Sorry, I couldn't think of a reply.");
+    } catch (err) {
+      console.error('AI error:', err);
+      bot.chat("I had an error contacting the AI.");
+    }
+    return;
+  }
+
+  // Default acknowledgement
+  bot.chat(`I heard you, ${username}.`);
 });
 
+// OpenAI function
 async function getAIResponse(prompt) {
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-    });
-    return response.choices[0].message.content;
-  } catch (err) {
-    console.error(err);
-    return "Sorry, I had an error thinking 😅";
-  }
+  if (!OPENAI_KEY) throw new Error('OpenAI key not set.');
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: prompt }],
+  });
+  return response.choices[0].message.content;
 }
