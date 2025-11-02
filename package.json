@@ -1,19 +1,17 @@
 {
-  "name": "minecraftai",
+  "name": "minecraft-ai",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "main": "server.js",
+  "engines": {
+    "node": "20.x"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
-    "dotenv": "^17.2.3",
-    "mineflayer": "^4.33.0",
-    "mineflayer-pathfinder": "^2.4.5",
-    "openai": "^6.7.0"
+    "mineflayer": "^4.15.0",
+    "mineflayer-pathfinder": "^2.3.1",
+    "openai": "^4.0.0",
+    "dotenv": "^17.2.3"
   }
 }
